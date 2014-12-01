@@ -20,7 +20,6 @@
 package org.sonar.plugins.dotnet.tests;
 
 import com.google.common.annotations.VisibleForTesting;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sonar.api.batch.Sensor;
