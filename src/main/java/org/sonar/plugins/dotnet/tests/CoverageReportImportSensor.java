@@ -77,11 +77,11 @@ public class CoverageReportImportSensor implements Sensor {
           }
 
           for (Measure measure : coverageMeasureBuilder.createMeasures()) {
-        	if (isIT) {
-        	  context.saveMeasure(sonarFile, convertForIT(measure));
-        	} else {
+            if (isIT) {
+              context.saveMeasure(sonarFile, convertForIT(measure));
+            } else {
               context.saveMeasure(sonarFile, measure);
-        	}
+            }
           }
         }
       } else {
