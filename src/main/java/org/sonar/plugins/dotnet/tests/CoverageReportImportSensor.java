@@ -27,14 +27,28 @@ import org.sonar.api.batch.SensorContext;
 import org.sonar.api.measures.CoreMetrics;
 import org.sonar.api.measures.CoverageMeasuresBuilder;
 import org.sonar.api.measures.Measure;
+import org.sonar.api.measures.Metric;
 import org.sonar.api.resources.Project;
 
 import java.io.File;
+import java.util.HashMap;
 import java.util.Map;
 
 public class CoverageReportImportSensor implements Sensor {
 
   private static final Logger LOG = LoggerFactory.getLogger(CoverageReportImportSensor.class);
+
+  private static Map<Metric, Metric> mapConvertMetricsToIT;
+  static {
+    mapConvertMetricsToIT = new HashMap<Metric, Metric>();
+    mapConvertMetricsToIT.put(CoreMetrics.LINES_TO_COVER, CoreMetrics.IT_LINES_TO_COVER);
+    mapConvertMetricsToIT.put(CoreMetrics.UNCOVERED_LINES, CoreMetrics.IT_UNCOVERED_LINES);
+    mapConvertMetricsToIT.put(CoreMetrics.COVERAGE_LINE_HITS_DATA, CoreMetrics.IT_COVERAGE_LINE_HITS_DATA);
+    mapConvertMetricsToIT.put(CoreMetrics.CONDITIONS_TO_COVER, CoreMetrics.IT_CONDITIONS_TO_COVER);
+    mapConvertMetricsToIT.put(CoreMetrics.UNCOVERED_CONDITIONS, CoreMetrics.IT_UNCOVERED_CONDITIONS);
+    mapConvertMetricsToIT.put(CoreMetrics.COVERED_CONDITIONS_BY_LINE, CoreMetrics.IT_COVERED_CONDITIONS_BY_LINE);
+    mapConvertMetricsToIT.put(CoreMetrics.CONDITIONS_BY_LINE, CoreMetrics.IT_CONDITIONS_BY_LINE);
+  }
 
   private final WildcardPatternFileProvider wildcardPatternFileProvider = new WildcardPatternFileProvider(new File("."), File.separator);
   private final CoverageConfiguration coverageConf;
@@ -78,7 +92,12 @@ public class CoverageReportImportSensor implements Sensor {
 
           for (Measure measure : coverageMeasureBuilder.createMeasures()) {
             if (isIT) {
-              context.saveMeasure(sonarFile, convertForIT(measure));
+              Measure itMeasure = convertForIT(measure);
+              if(itMeasure != null) {
+                context.saveMeasure(sonarFile, itMeasure);
+              } else {
+                LOG.warn("The following metric cannot be converted to Integration Test Measure: " + itMeasure.getMetric().getKey());
+              }
             } else {
               context.saveMeasure(sonarFile, measure);
             }
@@ -92,26 +111,12 @@ public class CoverageReportImportSensor implements Sensor {
 
   private Measure convertForIT(Measure measure) {
     Measure itMeasure = null;
-    if (CoreMetrics.LINES_TO_COVER.equals(measure.getMetric())) {
-      itMeasure = new Measure(CoreMetrics.IT_LINES_TO_COVER, measure.getValue());
-
-    } else if (CoreMetrics.UNCOVERED_LINES.equals(measure.getMetric())) {
-        itMeasure = new Measure(CoreMetrics.IT_UNCOVERED_LINES, measure.getValue());
-
-    } else if (CoreMetrics.COVERAGE_LINE_HITS_DATA.equals(measure.getMetric())) {
-        itMeasure = new Measure(CoreMetrics.IT_COVERAGE_LINE_HITS_DATA, measure.getData());
-
-    } else if (CoreMetrics.CONDITIONS_TO_COVER.equals(measure.getMetric())) {
-        itMeasure = new Measure(CoreMetrics.IT_CONDITIONS_TO_COVER, measure.getValue());
-
-    } else if (CoreMetrics.UNCOVERED_CONDITIONS.equals(measure.getMetric())) {
-        itMeasure = new Measure(CoreMetrics.IT_UNCOVERED_CONDITIONS, measure.getValue());
-
-    } else if (CoreMetrics.COVERED_CONDITIONS_BY_LINE.equals(measure.getMetric())) {
-        itMeasure = new Measure(CoreMetrics.IT_COVERED_CONDITIONS_BY_LINE, measure.getData());
-
-    } else if (CoreMetrics.CONDITIONS_BY_LINE.equals(measure.getMetric())) {
-        itMeasure = new Measure(CoreMetrics.IT_CONDITIONS_BY_LINE, measure.getData());
+    Metric targetMetric = mapConvertMetricsToIT.get(measure.getMetric());
+    if (targetMetric != null) {
+      itMeasure = new Measure(targetMetric);
+      // Just copy value and data properties
+      itMeasure.setValue(measure.getValue());
+      itMeasure.setData(measure.getData());
     }
     return itMeasure;
   }  
